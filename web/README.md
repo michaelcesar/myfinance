@@ -29,7 +29,7 @@ pnpm typecheck   # tsc --noEmit
 pnpm test        # Vitest, including the code style guard tests
 ```
 
-`scripts/ci-local.sh` runs the CI jobs (credential scan, lint, typecheck, tests, audit, production build and Docker image build) on a clean clone inside Docker. The pre-push hook calls it; enable the hooks once per clone with `git config core.hooksPath .githooks`.
+`scripts/ci-local.sh` runs the CI jobs (credential scan, lint, typecheck, tests, audit, production build and Docker image build) on a clean clone inside Docker. GitHub runs the same jobs from `../.github/workflows/web.yml`. The repository's pre-push hook calls it when `web/` changes; enable the hooks once per clone, from the repository root, with `git config core.hooksPath .githooks`.
 
 ## Running everything together
 

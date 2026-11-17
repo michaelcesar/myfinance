@@ -1,16 +1,19 @@
-# CI: independent jobs on every push and pull request to main: committed
-# credentials, lint (ESLint + Prettier), typecheck, unit tests (with the
-# executable guards), migrations from an empty database, e2e against a real
-# Postgres, dependency audit and Docker image build. scripts/ci-local.sh runs
-# the same sequence locally.
+# API CI: independent jobs on every push and pull request to main that touches
+# api/: committed credentials (whole repository), lint (ESLint + Prettier),
+# typecheck, unit tests (with the executable guards), migrations from an empty
+# database, e2e against a real Postgres, dependency audit and Docker image
+# build. api/scripts/ci-local.sh runs the same sequence locally.
 
-name: CI
+name: API
 
 on:
   push:
     branches: [main]
+    paths: ['api/**', '.github/workflows/api.yml']
   pull_request:
     branches: [main]
+    paths: ['api/**', '.github/workflows/api.yml']
+  workflow_dispatch:
 
 concurrency:
   group: ci-${{ github.workflow }}-${{ github.ref }}
@@ -19,6 +22,10 @@ concurrency:
 env:
   NODE_VERSION: '22'
 
+defaults:
+  run:
+    working-directory: api
+
 jobs:
   secrets:
     name: Committed secrets
@@ -26,6 +33,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - name: Scan the tree for credentials
+        working-directory: .
         run: |
           if git ls-files | grep -E '(^secure/|\.pem$|\.p12$|\.key$|-service-account\.json$|(^|/)\.env(\.local|\.production|\.development|\.staging)?$)'; then
             echo "::error::Credential file is committed, remove it and use an environment variable."
@@ -39,10 +47,13 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - uses: pnpm/action-setup@v4
+        with:
+          package_json_file: api/package.json
       - uses: actions/setup-node@v4
         with:
           node-version: ${{ env.NODE_VERSION }}
           cache: pnpm
+          cache-dependency-path: api/pnpm-lock.yaml
       - run: pnpm install --frozen-lockfile
       - run: pnpm run lint
 
@@ -53,10 +64,13 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - uses: pnpm/action-setup@v4
+        with:
+          package_json_file: api/package.json
       - uses: actions/setup-node@v4
         with:
           node-version: ${{ env.NODE_VERSION }}
           cache: pnpm
+          cache-dependency-path: api/pnpm-lock.yaml
       - run: pnpm install --frozen-lockfile
       - run: pnpm run typecheck
 
@@ -67,10 +81,13 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - uses: pnpm/action-setup@v4
+        with:
+          package_json_file: api/package.json
       - uses: actions/setup-node@v4
         with:
           node-version: ${{ env.NODE_VERSION }}
           cache: pnpm
+          cache-dependency-path: api/pnpm-lock.yaml
       - run: pnpm install --frozen-lockfile
       - run: pnpm test
 
@@ -96,10 +113,13 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - uses: pnpm/action-setup@v4
+        with:
+          package_json_file: api/package.json
       - uses: actions/setup-node@v4
         with:
           node-version: ${{ env.NODE_VERSION }}
           cache: pnpm
+          cache-dependency-path: api/pnpm-lock.yaml
       - run: pnpm install --frozen-lockfile
       - run: pnpm run build
       - name: Apply compiled migrations (same command the Docker image runs)
@@ -131,10 +151,13 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - uses: pnpm/action-setup@v4
+        with:
+          package_json_file: api/package.json
       - uses: actions/setup-node@v4
         with:
           node-version: ${{ env.NODE_VERSION }}
           cache: pnpm
+          cache-dependency-path: api/pnpm-lock.yaml
       - run: pnpm install --frozen-lockfile
       - run: pnpm run test:e2e
 
@@ -145,10 +168,13 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - uses: pnpm/action-setup@v4
+        with:
+          package_json_file: api/package.json
       - uses: actions/setup-node@v4
         with:
           node-version: ${{ env.NODE_VERSION }}
           cache: pnpm
+          cache-dependency-path: api/pnpm-lock.yaml
       - run: pnpm install --frozen-lockfile
       - run: pnpm audit --audit-level=high
 
@@ -161,8 +187,8 @@ jobs:
       - uses: docker/setup-buildx-action@v3
       - uses: docker/build-push-action@v6
         with:
-          context: .
-          file: tools/docker/Dockerfile
+          context: api
+          file: api/tools/docker/Dockerfile
           push: false
           tags: financial-api:ci
           cache-from: type=gha

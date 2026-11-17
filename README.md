@@ -24,3 +24,14 @@ the other commands are in [`infra/README.md`](infra/README.md).
 
 To work on the code without Docker, see [`api/README.md`](api/README.md) and
 [`web/README.md`](web/README.md).
+
+## Checks
+
+GitHub Actions runs one workflow per folder (`.github/workflows/api.yml`,
+`web.yml` and `infra.yml`), only when that folder changes. The same jobs run
+locally through each folder's `scripts/ci-local.sh`. Enable the git hooks once
+per clone so commits are linted and pushes run the local CI first:
+
+```bash
+git config core.hooksPath .githooks
+```

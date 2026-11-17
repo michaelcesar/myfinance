@@ -1,12 +1,13 @@
 #!/usr/bin/env bash
 #
-# Runs locally the jobs of .github/workflows/ci.yml before the code reaches
+# Runs locally the jobs of .github/workflows/web.yml before the code reaches
 # GitHub: credential scan, lint (ESLint + Prettier), typecheck, tests (Vitest,
 # including the code style guards), dependency audit, production build and
 # Docker image build. The credential scan runs first on purpose: a key that
 # reaches GitHub cannot be taken back.
 #
-# It checks a clean clone of a commit, never the working tree, so untracked
+# It checks a clean clone of a commit (the whole repository, then the jobs run
+# inside this app's folder), never the working tree, so untracked
 # files, local docs, the dev server's .next and the local node_modules cannot
 # hide a failure GitHub would see. Each job runs in a node:22 container with
 # Corepack; downloads are cached in the financial-web-ci-cache volume. The
@@ -24,7 +25,9 @@
 
 set -euo pipefail
 
-REPO="$(git rev-parse --show-toplevel)"
+APP_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+REPO="$(git -C "$APP_DIR" rev-parse --show-toplevel)"
+APP_PREFIX="$(git -C "$APP_DIR" rev-parse --show-prefix)"
 COMMIT="$(git -C "$REPO" rev-parse --verify "${1:-HEAD}^{commit}")"
 CACHE_VOLUME="financial-web-ci-cache"
 WORKDIR="$(mktemp -d -t financial-web-ci-XXXXXX)"
@@ -58,7 +61,7 @@ docker run --rm -i \
   -e COREPACK_HOME=/cache/corepack \
   -e COREPACK_ENABLE_DOWNLOAD_PROMPT=0 \
   -e PNPM_HOME=/cache/pnpm \
-  -v "$WORKDIR/repo":/repo \
+  -v "$WORKDIR/repo/$APP_PREFIX":/repo \
   -v "$CACHE_VOLUME":/cache \
   -w /repo \
   node:22 bash -s <<'CONTAINER'
@@ -90,6 +93,6 @@ test -s .next/standalone/server.js || { echo ".next/standalone/server.js is empt
 CONTAINER
 
 echo "▶ Docker image build"
-docker build -q --build-arg API_URL=http://api:3001 -t financial-web:ci "$WORKDIR/repo" >/dev/null
+docker build -q --build-arg API_URL=http://api:3001 -t financial-web:ci "$WORKDIR/repo/$APP_PREFIX" >/dev/null
 
 echo "▶ Local CI passed for ${COMMIT:0:12}"

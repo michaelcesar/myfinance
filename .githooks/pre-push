@@ -1,0 +1,32 @@
+#!/usr/bin/env bash
+#
+# Blocks the push if a pushed commit fails the local CI of an app it touches.
+# Git feeds one line per ref ("<local ref> <local sha> <remote ref> <remote sha>").
+# For each one, the folders changed since the remote sha (everything, for a new
+# branch) decide what runs: api/scripts/ci-local.sh and web/scripts/ci-local.sh
+# check a clean clone of the commit; infra/scripts/ci-local.sh (make ci) runs
+# when infra/ changes and builds the images from the working tree.
+#
+# Enable once per clone: git config core.hooksPath .githooks
+set -euo pipefail
+
+ZERO="0000000000000000000000000000000000000000"
+REPO="$(git rev-parse --show-toplevel)"
+
+while read -r local_ref local_sha remote_ref remote_sha; do
+  [[ "$local_sha" == "$ZERO" ]] && continue
+  if [[ "$remote_sha" == "$ZERO" ]] || ! git -C "$REPO" cat-file -e "$remote_sha^{commit}" 2>/dev/null; then
+    changed="$(git -C "$REPO" ls-tree --name-only "$local_sha")"
+  else
+    changed="$(git -C "$REPO" diff --name-only "$remote_sha" "$local_sha" | cut -d/ -f1 | sort -u)"
+  fi
+  echo "▶ pre-push: checking ${local_ref} before it reaches ${remote_ref}"
+  for app in api web; do
+    if grep -qx "$app" <<<"$changed"; then
+      "$REPO/$app/scripts/ci-local.sh" "$local_sha"
+    fi
+  done
+  if grep -qx infra <<<"$changed"; then
+    "$REPO/infra/scripts/ci-local.sh"
+  fi
+done

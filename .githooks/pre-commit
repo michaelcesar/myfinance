@@ -1,0 +1,37 @@
+#!/usr/bin/env bash
+#
+# Runs ESLint and Prettier on the staged files of each app (api/, web/) before
+# the commit, from inside that app so its own config and node_modules are used.
+# Only staged files are checked, so it stays fast; the full CI runs in pre-push.
+#
+# Enable once per clone: git config core.hooksPath .githooks
+set -euo pipefail
+
+REPO="$(git rev-parse --show-toplevel)"
+
+check() {
+  local app="$1"
+  shift
+  local files lintable
+  mapfile -t files < <(git -C "$REPO/$app" diff --cached --name-only --relative --diff-filter=ACMR -- "$@")
+  [[ ${#files[@]} -eq 0 ]] && return 0
+  if [[ ! -d "$REPO/$app/node_modules" ]]; then
+    echo "pre-commit: $app/node_modules is missing, run pnpm install in $app/" >&2
+    exit 1
+  fi
+  lintable=()
+  for file in "${files[@]}"; do
+    [[ "$file" == *.css ]] || lintable+=("$file")
+  done
+  echo "▶ pre-commit: $app (${#files[@]} files)"
+  (
+    cd "$REPO/$app"
+    if [[ ${#lintable[@]} -gt 0 ]]; then
+      node node_modules/eslint/bin/eslint.js "${lintable[@]}"
+    fi
+    node node_modules/prettier/bin/prettier.cjs --check "${files[@]}"
+  )
+}
+
+check api 'src/*.ts' 'test/*.ts' 'database/*.ts'
+check web 'src/*.ts' 'src/*.tsx' 'src/*.css' '*.ts' '*.mts' '*.mjs'

@@ -1,14 +1,18 @@
-# CI: lint (ESLint + Prettier), typecheck, tests (Vitest, including the code
-# style guards) and production build on every push and pull request to main.
-# .githooks/pre-push runs the same sequence locally.
+# Web CI: lint (ESLint + Prettier), typecheck, tests (Vitest, including the code
+# style guards), dependency audit and production build on every push and pull
+# request to main that touches web/. web/scripts/ci-local.sh runs the same
+# sequence locally.
 
-name: CI
+name: Web
 
 on:
   push:
     branches: [main]
+    paths: ['web/**', '.github/workflows/web.yml']
   pull_request:
     branches: [main]
+    paths: ['web/**', '.github/workflows/web.yml']
+  workflow_dispatch:
 
 concurrency:
   group: ci-${{ github.workflow }}-${{ github.ref }}
@@ -18,6 +22,10 @@ env:
   NODE_VERSION: '22'
   NEXT_TELEMETRY_DISABLED: '1'
 
+defaults:
+  run:
+    working-directory: web
+
 jobs:
   verify:
     name: Lint, typecheck, test and build
@@ -26,12 +34,16 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - uses: pnpm/action-setup@v4
+        with:
+          package_json_file: web/package.json
       - uses: actions/setup-node@v4
         with:
           node-version: ${{ env.NODE_VERSION }}
           cache: pnpm
+          cache-dependency-path: web/pnpm-lock.yaml
       - run: pnpm install --frozen-lockfile
       - run: pnpm run lint
       - run: pnpm run typecheck
       - run: pnpm run test
+      - run: pnpm audit --audit-level=high
       - run: pnpm run build

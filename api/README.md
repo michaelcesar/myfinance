@@ -32,8 +32,8 @@ Optional demo data: `pnpm run seed:demo` (uses `SEED_DEMO_EMAIL` and `SEED_DEMO_
 ## Checks
 
 - `pnpm lint` and `pnpm typecheck`.
-- `scripts/ci-local.sh` runs the same jobs as `.github/workflows/ci.yml` on a clean clone, in Docker. The pre-push hook runs it.
-- Enable the hooks once per clone: `git config core.hooksPath .githooks`.
+- `scripts/ci-local.sh` runs the same jobs as `../.github/workflows/api.yml` on a clean clone, in Docker. The repository's pre-push hook runs it when `api/` changes.
+- Enable the hooks once per clone, from the repository root: `git config core.hooksPath .githooks`.
 
 ## Running everything together
 

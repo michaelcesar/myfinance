@@ -1,0 +1,32 @@
+# Stack CI: runs infra/scripts/ci-local.sh (make ci) on every push and pull
+# request to main that touches infra/, api/ or web/. It validates the compose
+# file, runs shellcheck, builds both images, starts a throwaway stack with
+# generated secrets and smoke tests it end to end, then tears everything down.
+
+name: Stack
+
+on:
+  push:
+    branches: [main]
+    paths: ['infra/**', 'api/**', 'web/**', '.github/workflows/infra.yml']
+  pull_request:
+    branches: [main]
+    paths: ['infra/**', 'api/**', 'web/**', '.github/workflows/infra.yml']
+  workflow_dispatch:
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+defaults:
+  run:
+    working-directory: infra
+
+jobs:
+  stack:
+    name: Compose stack end to end
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - run: make ci

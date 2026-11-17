@@ -1,12 +1,13 @@
 #!/usr/bin/env bash
 #
-# Runs locally the same jobs as .github/workflows/ci.yml before the code reaches
+# Runs locally the same jobs as .github/workflows/api.yml before the code reaches
 # GitHub: committed credentials scan, lint (ESLint + Prettier), typecheck, unit
 # tests (with the executable guards), dependency audit, build, migrations from an
 # empty database (compiled, plain `node`, as the image runs them), the migrations
 # vs entities check, e2e against a real Postgres and the Docker image build.
 #
-# It checks a clean clone of a commit, never the working tree, so untracked
+# It checks a clean clone of a commit (the whole repository, then the jobs run
+# inside this app's folder), never the working tree, so untracked
 # files, local docs and local node_modules cannot hide a failure GitHub would
 # see. Each job runs in a node:22 container with Corepack; downloads are cached
 # in the `financial-api-ci-cache` volume. A throwaway postgres:16-alpine (one
@@ -25,7 +26,9 @@
 
 set -euo pipefail
 
-REPO="$(git rev-parse --show-toplevel)"
+APP_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+REPO="$(git -C "$APP_DIR" rev-parse --show-toplevel)"
+APP_PREFIX="$(git -C "$APP_DIR" rev-parse --show-prefix)"
 COMMIT="$(git -C "$REPO" rev-parse --verify "${1:-HEAD}^{commit}")"
 CACHE_VOLUME="financial-api-ci-cache"
 NETWORK="financial-api-ci-$$"
@@ -79,7 +82,7 @@ docker run --rm -i \
   -e PNPM_HOME=/cache/pnpm \
   -e POSTGRES_URI="postgresql://postgres:postgres@${PG_NAME}:5432/financial_test" \
   -e MIGRATIONS_URI="postgresql://postgres:postgres@${PG_NAME}:5432/financial_migrations" \
-  -v "$WORKDIR/repo":/repo \
+  -v "$WORKDIR/repo/$APP_PREFIX":/repo \
   -v "$CACHE_VOLUME":/cache \
   -w /repo \
   node:22 bash -s <<'CONTAINER'
@@ -126,6 +129,6 @@ pnpm run test:e2e
 CONTAINER
 
 echo "▶ Docker image build"
-docker build -q -f "$WORKDIR/repo/tools/docker/Dockerfile" -t financial-api:ci "$WORKDIR/repo" >/dev/null
+docker build -q -f "$WORKDIR/repo/${APP_PREFIX}tools/docker/Dockerfile" -t financial-api:ci "$WORKDIR/repo/$APP_PREFIX" >/dev/null
 
 echo "▶ Local CI passed for ${COMMIT:0:12}"
