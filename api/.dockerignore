@@ -1,0 +1,26 @@
+# Contexto de build da imagem (tools/docker/Dockerfile, contexto = raiz).
+# Só entra o que o build precisa: manifests, tsconfig, src/ e as migrations.
+node_modules
+dist
+coverage
+.git
+.githooks
+.github
+docs
+test
+scripts
+# As seeds são de desenvolvimento; as migrations entram (são compiladas para
+# dist/database/migrations e rodadas pelo serviço `migrate`).
+database/seeds
+*.md
+*.tsbuildinfo
+*.log
+# Segredos nunca entram na imagem.
+.env
+.env.*
+!.env.example
+secure
+*.pem
+*.key
+*.p12
+*-service-account.json

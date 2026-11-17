@@ -1,0 +1,11 @@
+# Folders
+/dist
+/node_modules
+/documentation
+/storage
+/.pnpm-store
+
+# compiled output
+.npmrc
+.nvmrc
+coverage

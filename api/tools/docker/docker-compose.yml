@@ -1,0 +1,19 @@
+# Banco de desenvolvimento (fora do Docker do dia a dia em ../../../infra): container
+# `financial_postgres` em 127.0.0.1:5435, bancos `financial` e `financial_test`.
+name: financial-dev
+
+services:
+  postgres:
+    container_name: financial_postgres
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_DB: financial
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+    ports:
+      - '127.0.0.1:5435:5432'
+    volumes:
+      - financial-postgres-data:/var/lib/postgresql/data
+
+volumes:
+  financial-postgres-data:

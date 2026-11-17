@@ -1,0 +1,4 @@
+{
+  "{src,test,database}/**/*.ts": ["eslint --fix"],
+  "./**/*.{ts,js,mjs,json,*rc}": ["prettier --write"]
+}
