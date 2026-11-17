@@ -1,7 +1,7 @@
 # Finance Manager
 
 Personal finance app with personal and company ledgers, recurrences, forecast
-and analysis. This repository (`infra/`) runs the whole thing in Docker, **only
+and analysis. This folder (`infra/`) runs the whole thing in Docker, **only
 on this machine**: a NestJS API (`../api`), a Next.js web app (`../web`) and
 PostgreSQL 16, as one compose project (`finance`) with three containers:
 `postgres`, `back-end` and `front-end`. The only published port is the
@@ -16,7 +16,7 @@ browser --> 127.0.0.1:8080 --> front-end (Next.js) --/api/*--> back-end (NestJS)
 
 - Docker with Compose v2, `make` and `openssl`.
 - `curl` and `jq` for `make ci`.
-- The three repositories side by side: `financial/{api,web,infra}`.
+- This repository cloned as is: `infra/` builds `../api` and `../web`.
 
 ## First run
 
@@ -128,13 +128,13 @@ so it runs while the real stack is up.
 ## Layout
 
 ```
-financial/
+myfinance/
   api/     NestJS API
   web/     Next.js web app
-  infra/   this repository: compose file, Makefile, scripts/ (setup, backup, restore, CI)
+  infra/   this folder: compose file, Makefile, scripts/ (setup, backup, restore, CI)
 ```
 
-`../api` and `../web` are sibling repositories, built from their working trees
+`../api` and `../web` are sibling folders, built from their working trees
 by `make up` and `make rebuild`. Their `docs/` folders are local-only.
 
 ## Wiping everything
