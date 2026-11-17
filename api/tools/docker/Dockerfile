@@ -1,52 +1,26 @@
 # syntax=docker/dockerfile:1
-# =============================================================================
-# Finance Manager API (financial-api, NestJS) — imagem de produção
-# =============================================================================
-# Este arquivo vive em tools/docker/, mas o contexto de build é a RAIZ do repo:
+# Finance Manager API (NestJS): multi-stage production image.
 #
+# Lives in tools/docker/ but the build context is the repo ROOT, where the
+# .dockerignore is read:
 #   docker build -f tools/docker/Dockerfile -t financial-api .
 #   docker build -f tools/docker/Dockerfile --build-arg APP_VERSION=1.2.0 -t financial-api:1.2.0 .
 #
-# O `.dockerignore` fica na raiz (o Docker só o lê do contexto, não daqui).
+# Only dist/, production dependencies and package.json reach the final image.
+# pnpm comes from Corepack at the version pinned in package.json. .npmrc and
+# pnpm-workspace.yaml are copied on purpose: they change resolution, and without
+# them --frozen-lockfile could install something different from what was tested.
+# The build is followed by guards so an empty output fails here, not at runtime.
 #
-# Multi-stage: devDependencies e TypeScript ficam nos estágios de build; a
-# imagem final leva só `dist/`, as dependências de produção e o package.json.
-#
-# Migrations: não rodam no boot. Uma migration que falha no meio de um boot
-# derruba a aplicação inteira, e dois boots em paralelo podem rodá-la duas
-# vezes. A imagem carrega tudo que o CLI do TypeORM precisa sem ts-node —
-# `typeorm` e `dotenv` são dependências de produção, `dist/config/datasource.js`
-# e `dist/database/migrations/*.js` saem do `pnpm run build` — então rode-as
-# como job one-off ANTES de subir a nova versão:
-#
+# Migrations do not run on boot. Run them as a one-off job before starting a new
+# version (node only, no ts-node; locally this is the `migrate` service of
+# infra/docker-compose.yml):
 #   docker run --rm -e POSTGRES_URI=... financial-api npm run migration:run:prod
 #
-# No stack local (infra/docker-compose.yml) isso é o serviço `migrate`, do
-# qual a API depende com `service_completed_successfully`.
-
-# ----------------------------------------------------------------- base
-#
-# Notas:
-#   - pnpm via Corepack, na versão fixada em package.json (`packageManager`).
-#   - O `.npmrc` e o `pnpm-workspace.yaml` vêm junto de propósito: eles mudam a
-#     resolução (engine-strict, onlyBuiltDependencies), e sem eles o `--frozen-lockfile`
-#     poderia reprovar ou instalar algo diferente do testado.
-#   - --frozen-lockfile falha se o lock estiver desatualizado, em vez de
-#     resolver versões diferentes das testadas.
-#   - `build` = `nest build` (src → dist) + `build:migrations`
-#     (database/migrations/*.ts → dist/database/migrations/*.js). As guardas
-#     depois dele pegam um build que termina com código 0 e saída vazia — sem
-#     elas, o problema só apareceria no `docker compose up`.
-#   - dumb-init como PID 1: encaminha SIGTERM ao Node (o `docker stop` encerra a
-#     API de forma limpa em vez de esperar o timeout e matar com SIGKILL) e
-#     recolhe processos zumbis.
-#   - O `npm run migration:run:prod` não deve tentar falar com o registro.
-#   - Versão gravada na imagem, não vinda de configuração em tempo de execução:
-#     a imagem sabe a própria versão. Sem o argumento a variável fica vazia.
-#   - Usuário sem privilégios: a imagem do Node já traz o `node` (uid/gid 1000).
-#   - GET /health confere o processo e um `SELECT 1` no banco. Com o banco fora,
-#     o container fica `unhealthy` — no compose isso só segura quem depende da
-#     API (o web); não reinicia nada.
+# dumb-init is PID 1 so SIGTERM reaches Node and zombies are reaped. The app
+# runs as the unprivileged `node` user. APP_VERSION is baked into the image.
+# GET /health checks the process and a `SELECT 1`; an unhealthy container is
+# not restarted, it only holds back dependents.
 
 FROM node:22-bookworm-slim AS base
 ENV PNPM_HOME=/pnpm

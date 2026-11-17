@@ -1,5 +1,4 @@
-# Banco de desenvolvimento (fora do Docker do dia a dia em ../../../infra): container
-# `financial_postgres` em 127.0.0.1:5435, bancos `financial` e `financial_test`.
+# Development Postgres: container `financial_postgres` on 127.0.0.1:5435.
 name: financial-dev
 
 services:

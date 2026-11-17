@@ -1,12 +1,11 @@
 #!/usr/bin/env bash
 #
-# Bloqueia o push se algum commit enviado não passar no CI local.
+# Blocks the push if any pushed commit fails the local CI.
+# Git feeds one line per ref ("<local ref> <local sha> <remote ref> <remote sha>");
+# each local sha is checked by scripts/ci-local.sh, which runs the jobs of
+# .github/workflows/ci.yml on a clean clone.
 #
-# O Git entrega uma linha por ref: "<ref local> <sha local> <ref remota>
-# <sha remoto>". Cada sha local é checado por scripts/ci-local.sh, que roda
-# os mesmos jobs de .github/workflows/ci.yml num clone limpo.
-#
-# Ativado uma vez por clone com: git config core.hooksPath .githooks
+# Enable once per clone: git config core.hooksPath .githooks
 set -euo pipefail
 
 ZERO="0000000000000000000000000000000000000000"
@@ -16,6 +15,6 @@ while read -r local_ref local_sha remote_ref _remote_sha; do
   if [[ "$local_sha" == "$ZERO" ]]; then
     continue
   fi
-  echo "▶ pre-push: conferindo ${local_ref} antes de chegar em ${remote_ref}"
+  echo "▶ pre-push: checking ${local_ref} before it reaches ${remote_ref}"
   "$REPO/scripts/ci-local.sh" "$local_sha"
 done

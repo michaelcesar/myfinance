@@ -1,11 +1,11 @@
-# Folders
+# Paths Prettier skips: build output, dependencies and config dotfiles.
+
 /dist
 /node_modules
 /documentation
 /storage
 /.pnpm-store
 
-# compiled output
 .npmrc
 .nvmrc
 coverage

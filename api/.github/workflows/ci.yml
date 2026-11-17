@@ -1,7 +1,8 @@
-# Jobs independentes em todo push e pull request para main: credenciais
-# versionadas, lint (ESLint + Prettier), typecheck, testes unitários (com as
-# guardas executáveis), e2e contra Postgres real, auditoria de dependências
-# e build da imagem Docker. scripts/ci-local.sh reproduz a mesma sequência.
+# CI: independent jobs on every push and pull request to main: committed
+# credentials, lint (ESLint + Prettier), typecheck, unit tests (with the
+# executable guards), migrations from an empty database, e2e against a real
+# Postgres, dependency audit and Docker image build. scripts/ci-local.sh runs
+# the same sequence locally.
 
 name: CI
 
@@ -27,7 +28,7 @@ jobs:
       - name: Scan the tree for credentials
         run: |
           if git ls-files | grep -E '(^secure/|\.pem$|\.p12$|\.key$|-service-account\.json$|(^|/)\.env(\.local|\.production|\.development|\.staging)?$)'; then
-            echo "::error::Credential file is committed — remove it and use an environment variable."
+            echo "::error::Credential file is committed, remove it and use an environment variable."
             exit 1
           fi
 

@@ -1,12 +1,10 @@
 #!/usr/bin/env bash
 #
-# Roda o ESLint nos arquivos .ts do índice antes de cada commit.
+# Runs ESLint and Prettier on the staged .ts files before each commit.
+# Only staged files are checked, so it stays fast; the full CI (lint,
+# typecheck, tests, e2e, build) runs in the pre-push hook via scripts/ci-local.sh.
 #
-# Lint só do que está staged, com as dependências locais: rápido o bastante
-# para não ser pulado. O CI completo (lint, typecheck, testes, e2e, build)
-# fica no pre-push, via scripts/ci-local.sh.
-#
-# Ativado uma vez por clone com: git config core.hooksPath .githooks
+# Enable once per clone: git config core.hooksPath .githooks
 set -euo pipefail
 
 REPO="$(git rev-parse --show-toplevel)"
