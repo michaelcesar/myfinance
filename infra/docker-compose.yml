@@ -1,0 +1,127 @@
+# =============================================================================
+# Finance Manager — stack local (uso pessoal, só nesta máquina)
+# =============================================================================
+#
+#   make up        # build + sobe tudo (ver Makefile e README.md)
+#
+# Grupo `finance` com três containers numa rede interna do compose:
+#
+#   postgres   postgres:16-alpine, dados no volume `postgres-data`. NÃO publicado.
+#   back-end   API (NestJS). Ao subir, aplica as migrations pendentes e só então
+#              inicia; se uma migration falhar, o container não fica saudável e o
+#              front-end não sobe (`make logs S=back-end` mostra o erro). NÃO publicado.
+#   front-end  web (Next.js). ÚNICA porta publicada, e só em loopback:
+#              http://localhost:${APP_PORT:-8080}. O navegador chama `/api/*` no
+#              próprio front-end, que reescreve para http://back-end:3001 (mesma
+#              origem — o cookie httpOnly do refresh token funciona sem CORS).
+#
+# Os nomes dos containers são fixos (`postgres`, `back-end`, `front-end`). O
+# `FM_CONTAINER_PREFIX` existe só para o CI (`scripts/ci-local.sh`) subir uma
+# pilha descartável ao lado desta sem colidir nomes; no uso normal fica vazio.
+#
+# Configuração: o compose lê `infra/.env` (criado por `scripts/setup.sh` a
+# partir do `.env.example`) para interpolar as variáveis abaixo. Cada container
+# recebe só o que usa, listado em `environment:` — o APP_SECRET não vai para o
+# Postgres, a senha do banco não vai para o front-end.
+#
+# Portas: sem o `127.0.0.1:` o Docker publicaria em 0.0.0.0 e ainda abriria
+# exceção no firewall, expondo o app (e seus dados financeiros) à rede local.
+#
+# Notas:
+#   - Rotação dos logs do Docker: um stack que fica de pé meses não pode encher
+#     o disco com json-file.
+#   - Migrations pendentes primeiro, depois a API. O `exec` troca o shell pelo
+#     node, então o dumb-init da imagem entrega o SIGTERM direto à aplicação.
+#   - Só alimenta o CORS da API; com o proxy do front-end tudo é mesma origem.
+#   - Mesmo teste do HEALTHCHECK da imagem, com intervalo menor na subida para o
+#     front-end não esperar 30 s pelo primeiro "healthy". O start_period cobre
+#     as migrations.
+#   - Resolvido no `next build`: o rewrite /api/* aponta para o serviço `back-
+#     end` desta rede. Ver o cabeçalho de web/Dockerfile.
+
+name: finance
+
+x-logging: &logging
+  driver: json-file
+  options:
+    max-size: '10m'
+    max-file: '3'
+
+x-db-uri: &db-uri postgresql://${POSTGRES_USER:-finance}:${POSTGRES_PASSWORD:-finance}@postgres:5432/${POSTGRES_DB:-finance_manager}
+
+services:
+  postgres:
+    container_name: ${FM_CONTAINER_PREFIX:-}postgres
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-finance}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-finance}
+      POSTGRES_DB: ${POSTGRES_DB:-finance_manager}
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U "$${POSTGRES_USER}" -d "$${POSTGRES_DB}"']
+      interval: 5s
+      timeout: 3s
+      retries: 20
+    logging: *logging
+
+  back-end:
+    container_name: ${FM_CONTAINER_PREFIX:-}back-end
+    image: finance-back-end:${IMAGE_TAG:-local}
+    build:
+      context: ../api
+      dockerfile: tools/docker/Dockerfile
+      args:
+        APP_VERSION: ${APP_VERSION:-}
+    restart: unless-stopped
+    command: ['sh', '-c', 'npm run --silent migration:run:prod && exec node dist/main']
+    environment:
+      NODE_ENV: production
+      PORT: 3001
+      APP_SECRET: ${APP_SECRET:?APP_SECRET ausente — rode scripts/setup.sh (gera infra/.env) ou defina a variável}
+      FRONTEND_DOMAIN: http://localhost:${APP_PORT:-8080}
+      POSTGRES_URI: *db-uri
+      TYPEORM_LOG: 'false'
+      TYPEORM_SYNC: 'false'
+      ACCESS_TOKEN_TTL_SECONDS: ${ACCESS_TOKEN_TTL_SECONDS:-900}
+      REFRESH_TOKEN_TTL_DAYS: ${REFRESH_TOKEN_TTL_DAYS:-7}
+      ALLOW_SIGNUP: ${ALLOW_SIGNUP:-false}
+    depends_on:
+      postgres:
+        condition: service_healthy
+    healthcheck:
+      test: ['CMD', 'node', '-e', "require('http').get('http://127.0.0.1:3001/health',r=>process.exit(r.statusCode===200?0:1)).on('error',()=>process.exit(1))"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 90s
+      start_interval: 2s
+    logging: *logging
+
+  front-end:
+    container_name: ${FM_CONTAINER_PREFIX:-}front-end
+    image: finance-front-end:${IMAGE_TAG:-local}
+    build:
+      context: ../web
+      args:
+        API_URL: http://back-end:3001
+        APP_VERSION: ${APP_VERSION:-}
+    restart: unless-stopped
+    ports:
+      - '127.0.0.1:${APP_PORT:-8080}:3000'
+    depends_on:
+      back-end:
+        condition: service_healthy
+    healthcheck:
+      test: ['CMD', 'node', '-e', "require('http').get('http://127.0.0.1:3000/entrar',r=>process.exit(r.statusCode===200?0:1)).on('error',()=>process.exit(1))"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 30s
+      start_interval: 2s
+    logging: *logging
+
+volumes:
+  postgres-data:

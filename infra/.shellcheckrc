@@ -1,0 +1,8 @@
+# `# shellcheck source=lib.sh` resolve a partir da pasta do próprio script.
+source-path=SCRIPTDIR
+external-sources=true
+
+# SC2016 (aspas simples sem expansão) é intencional aqui: os comandos passados
+# para `compose exec db sh -c '...'` usam $POSTGRES_USER/$POSTGRES_DB do
+# ambiente do CONTAINER, e precisam chegar lá sem expandir no host.
+disable=SC2016

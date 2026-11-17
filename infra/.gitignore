@@ -1,0 +1,13 @@
+# Configuração real e segredos do stack local: gerada por scripts/setup.sh.
+.env
+.env.*
+!.env.example
+
+# Dumps do banco (dados financeiros pessoais): nunca versionados.
+backups/
+
+# Editor / SO
+.vscode/
+.idea/
+.DS_Store
+*:Zone.Identifier
