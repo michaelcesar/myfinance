@@ -1,7 +1,7 @@
-# Contexto de build da imagem (Dockerfile na raiz).
-# Fica de fora tudo que o `next build` gera ou não usa: node_modules e .next
-# locais (o dev server em execução escreve em .next — copiá-lo sujaria o build),
-# docs, hooks e configuração de CI.
+# Build context of the Docker image (Dockerfile at the repo root).
+# Excludes everything next build generates or does not use (the running dev
+# server writes to .next, so copying it would dirty the build), docs, hooks,
+# CI config and secrets (.env files, keys, certificates).
 node_modules
 .next
 out
@@ -21,7 +21,6 @@ scripts
 next-env.d.ts
 Dockerfile
 .dockerignore
-# Segredos nunca entram na imagem.
 .env
 .env.*
 !.env.example

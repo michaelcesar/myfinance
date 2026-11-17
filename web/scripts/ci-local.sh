@@ -1,30 +1,26 @@
 #!/usr/bin/env bash
 #
-# Roda localmente os mesmos jobs de .github/workflows/ci.yml antes do código
-# chegar ao GitHub: varredura de credenciais, lint (ESLint + Prettier),
-# typecheck, testes (Vitest, com as guardas de padrão de código), auditoria de
-# dependências, build de produção e build da imagem Docker.
+# Runs locally the jobs of .github/workflows/ci.yml before the code reaches
+# GitHub: credential scan, lint (ESLint + Prettier), typecheck, tests (Vitest,
+# including the code style guards), dependency audit, production build and
+# Docker image build. The credential scan runs first on purpose: a key that
+# reaches GitHub cannot be taken back.
 #
-# Confere um clone limpo de um commit, nunca a árvore de trabalho: arquivo não
-# rastreado, docs locais, o `.next` do dev server e o node_modules local não
-# escondem uma falha que o GitHub veria. Cada job roda num container node:22
-# com Corepack; downloads ficam em cache no volume `financial-web-ci-cache`.
+# It checks a clean clone of a commit, never the working tree, so untracked
+# files, local docs, the dev server's .next and the local node_modules cannot
+# hide a failure GitHub would see. Each job runs in a node:22 container with
+# Corepack; downloads are cached in the financial-web-ci-cache volume. The
+# production build uses API_URL=http://api:3001 (same as the local stack image)
+# and never touches the working tree's .next. The image build comes last
+# because the local stack runs the image, so a broken Dockerfile must fail
+# before the push.
 #
-# O build de produção roda dentro do container, no clone: nunca toca o `.next`
-# da árvore de trabalho, que o `next dev` está usando.
+# Usage:
+#   scripts/ci-local.sh            # check HEAD
+#   scripts/ci-local.sh <commit>   # check another commit
 #
-# Uso:
-#   scripts/ci-local.sh            # confere o HEAD
-#   scripts/ci-local.sh <commit>   # confere outro commit
-#
-# Chamado por .githooks/pre-push para cada commit a ser enviado. Sai com erro
-# no primeiro job que falhar.
-#
-# Notas:
-#   - Primeiro job, de propósito: chave que chega ao GitHub não volta atrás.
-#   - Mesmo API_URL da imagem do stack local: os rewrites saem do build.
-#   - Último job: o que roda no stack local é a imagem, então um Dockerfile
-#     quebrado tem de falhar antes do push.
+# Called by .githooks/pre-push for each commit being pushed. Exits with an
+# error at the first failing job.
 
 set -euo pipefail
 
@@ -39,16 +35,16 @@ cleanup() {
 }
 trap cleanup EXIT
 
-echo "▶ CI local para ${COMMIT:0:12} (clone limpo, node:22)"
+echo "▶ Local CI for ${COMMIT:0:12} (clean clone, node:22)"
 git clone --quiet --no-hardlinks "$REPO" "$WORKDIR/repo"
 git -C "$WORKDIR/repo" checkout --quiet "$COMMIT"
 
-echo "▶ Credenciais versionadas"
+echo "▶ Tracked credentials"
 if git -C "$WORKDIR/repo" ls-files | grep -E '(^secure/|\.pem$|\.p12$|\.key$|-service-account\.json$|(^|/)\.env(\.local|\.production|\.development|\.staging)?$)'; then
-  echo "Arquivo de credencial versionado — remova e use variável de ambiente."
+  echo "Credential file is tracked: remove it and use an environment variable."
   exit 1
 fi
-echo "Nenhuma credencial versionada."
+echo "No tracked credentials."
 
 docker volume create "$CACHE_VOLUME" >/dev/null
 docker run --rm -v "$CACHE_VOLUME":/cache alpine:3 \
@@ -73,7 +69,7 @@ mkdir -p /tmp/bin
 corepack enable --install-directory /tmp/bin
 export PATH="/tmp/bin:$PATH"
 
-step "Dependências (pnpm install --frozen-lockfile)"
+step "Dependencies (pnpm install --frozen-lockfile)"
 pnpm install --frozen-lockfile
 
 step "Lint (ESLint + Prettier)"
@@ -82,18 +78,18 @@ pnpm run lint
 step "Typecheck (tsc --noEmit)"
 pnpm run typecheck
 
-step "Testes (Vitest, com as guardas de padrão de código)"
+step "Tests (Vitest, including the code style guards)"
 pnpm run test
 
-step "Vulnerabilidades (pnpm audit --audit-level=high)"
+step "Vulnerabilities (pnpm audit --audit-level=high)"
 pnpm audit --audit-level=high
 
-step "Build de produção (next build, standalone)"
+step "Production build (next build, standalone)"
 API_URL=http://api:3001 pnpm run build
-test -s .next/standalone/server.js || { echo ".next/standalone/server.js vazio ou ausente"; exit 1; }
+test -s .next/standalone/server.js || { echo ".next/standalone/server.js is empty or missing"; exit 1; }
 CONTAINER
 
-echo "▶ Build da imagem Docker"
+echo "▶ Docker image build"
 docker build -q --build-arg API_URL=http://api:3001 -t financial-web:ci "$WORKDIR/repo" >/dev/null
 
-echo "▶ CI local passou para ${COMMIT:0:12}"
+echo "▶ Local CI passed for ${COMMIT:0:12}"

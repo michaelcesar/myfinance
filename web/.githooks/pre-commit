@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 #
-# Roda ESLint e Prettier nos arquivos do índice antes de cada commit.
-# Ativado uma vez por clone com: git config core.hooksPath .githooks
+# Pre-commit hook: runs ESLint and Prettier on the staged files.
+# Enabled once per clone with: git config core.hooksPath .githooks
 set -euo pipefail
 
 REPO="$(git rev-parse --show-toplevel)"

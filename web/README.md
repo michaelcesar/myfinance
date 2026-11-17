@@ -1,40 +1,40 @@
-# Financial Web
+# Finance Manager Web
 
-Front-end of **Financial** — personal finance and the finances of each of your companies in one place,
-with an interface inspired by Apple's design language (system fonts and colors, translucent
-materials, sheets, segmented controls, spring animations, light and dark themes).
+Web app of Finance Manager, a personal finance system. It runs locally only; there is no deploy.
 
-- Next.js 16 (App Router, Cache Components) · React 19.3 · TypeScript (strict)
-- Tailwind CSS v4 design tokens · Motion · Radix primitives · TanStack Query 5 · Recharts 3
-- Talks to [`financial-api`](../api) through a same-origin `/api/*` rewrite
+- Next.js 16 (App Router), React, TypeScript (strict)
+- TanStack Query for server state, Tailwind v4 design tokens, Formik + Yup for forms
+- Screens: Visão geral, Previsão, Análises, Lançamentos, Investimentos, Livros, Recorrentes, Contas and Configurações (including backup)
+- The UI text is in Brazilian Portuguese
 
-## Screens
+## Requirements
 
-Overview (consolidated net worth, period results, one card per ledger, 12-month cash flow, income
-by origin, expenses by category, upcoming, allocation) · Personal and each company (summary,
-transactions, accounts, income, investments) · Transactions · Accounts · Income sources · Clients ·
-Investments · Settings (appearance, profile, password, categories). A global "+" opens the
-expense / income / transfer sheet from anywhere.
+- Node, version in `.nvmrc`
+- pnpm through Corepack (`corepack enable`); the version is pinned in `package.json`
 
-## Setup
+## Development
+
+The API must be running on `http://localhost:3001`. The web app only calls `/api/*`, which `next.config.ts` rewrites to `API_URL` (default `http://localhost:3001`), so the browser sees a single origin. To use another address, copy `.env.example` to `.env.local` and set `API_URL`.
 
 ```bash
-corepack enable
 pnpm install
-cp .env.example .env.local   # API_URL, defaults to http://localhost:3001
-pnpm dev                     # http://localhost:3000 — the API must be running
+pnpm dev   # http://localhost:3000
 ```
 
-## Scripts
+## Checks
 
-| Script | What it does |
-|---|---|
-| `dev` / `build` / `start` | Next.js dev server / production build / serve the build |
-| `lint` / `format` | ESLint + Prettier check / write |
-| `typecheck` | `tsc --noEmit` |
-| `test` | Vitest (units, components and code-style guards) |
-| `precommit` | lint + typecheck + test |
+```bash
+pnpm lint        # ESLint + Prettier
+pnpm typecheck   # tsc --noEmit
+pnpm test        # Vitest, including the code style guard tests
+```
 
-## License
+`scripts/ci-local.sh` runs the CI jobs (credential scan, lint, typecheck, tests, audit, production build and Docker image build) on a clean clone inside Docker. The pre-push hook calls it; enable the hooks once per clone with `git config core.hooksPath .githooks`.
 
-UNLICENSED — private project.
+## Running everything together
+
+The full stack (database, API and web) runs with Docker Compose. See [`../infra`](../infra/README.md). The app is served at http://localhost:8080.
+
+## Local-only files
+
+`docs/`, `CLAUDE.md` and `AGENTS.md` are local-only and are not versioned.

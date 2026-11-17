@@ -1,40 +1,22 @@
 # syntax=docker/dockerfile:1
-# =============================================================================
-# Finance Manager web (financial-web, Next.js) — imagem de produção
-# =============================================================================
+#
+# Production image of the Finance Manager web app (Next.js standalone).
 #
 #   docker build --build-arg API_URL=http://api:3001 -t financial-web .
 #
-# API_URL é argumento de BUILD, não variável de runtime: o `next.config.ts`
-# reescreve `/api/:path*` para `API_URL`, e o Next grava os rewrites no
-# `routes-manifest.json` durante o `next build`. Trocar `API_URL` no
-# `docker run` não muda nada — mudar o endereço da API pede rebuild. No stack
-# local (infra/docker-compose.yml) o valor é `http://api:3001`, o nome do
-# serviço na rede interna do compose.
+# API_URL is a build argument, not a runtime variable: next.config.ts rewrites
+# /api/:path* to API_URL and Next bakes the rewrites into routes-manifest.json
+# during `next build`. Changing the API address requires a rebuild. The local
+# stack (infra/docker-compose.yml) uses http://api:3001.
 #
-# Multi-stage: deps (pnpm install --frozen-lockfile) → build (next build com
-# `output: 'standalone'`) → runtime só com `.next/standalone`, `.next/static`
-# e `public/`. O runtime não tem pnpm nem `node_modules` completo: o
-# `server.js` do standalone traz só o que o servidor de fato importa.
-
-# ----------------------------------------------------------------- base
-#
-# Notas:
-#   - pnpm via Corepack, na versão fixada em package.json (`packageManager`).
-#   - O `.npmrc` vem junto: `engine-strict` faz parte do contrato do lockfile.
-#   - --frozen-lockfile falha se o lock estiver desatualizado, em vez de
-#     resolver versões diferentes das testadas.
-#   - `public/` pode não existir num clone limpo (o Git não guarda pasta vazia),
-#     e o COPY do runtime falharia sem ela. A guarda depois do build pega um
-#     standalone vazio antes de a imagem existir.
-#   - dumb-init como PID 1: encaminha SIGTERM ao Node (o `docker stop` encerra o
-#     servidor de forma limpa em vez de esperar o timeout) e recolhe zumbis.
-#   - Sem isto o `server.js` escuta só no hostname do container, e o healthcheck
-#     (127.0.0.1) e o compose não alcançam o servidor.
-#   - Usuário sem privilégios: a imagem do Node já traz o `node` (uid/gid 1000).
-#   - /entrar é a única tela pública: as demais redirecionam para ela sem o
-#     cookie de sessão. Confere só o servidor Next, não a API — a saúde da API é
-#     do container dela.
+# Multi-stage: deps (pnpm install --frozen-lockfile), build (next build with
+# output: 'standalone'), runtime with only .next/standalone, .next/static and
+# public/. pnpm comes from Corepack at the version pinned in package.json, and
+# .npmrc is copied so engine-strict applies. The runtime runs as the
+# unprivileged node user behind dumb-init (PID 1: forwards SIGTERM, reaps
+# zombies) and binds 0.0.0.0 so the healthcheck and compose can reach it. The
+# healthcheck requests /entrar, the only public screen, and checks the Next
+# server only, not the API.
 
 FROM node:22-bookworm-slim AS base
 ENV PNPM_HOME=/pnpm

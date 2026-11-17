@@ -1,6 +1,6 @@
-# Lint (ESLint + Prettier), typecheck, testes (Vitest, com as guardas de
-# padrão de código) e build de produção em todo push e pull request para
-# main. .githooks/pre-push roda a mesma sequência localmente.
+# CI: lint (ESLint + Prettier), typecheck, tests (Vitest, including the code
+# style guards) and production build on every push and pull request to main.
+# .githooks/pre-push runs the same sequence locally.
 
 name: CI
 
