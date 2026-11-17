@@ -1,8 +1,9 @@
 # =============================================================================
-# Finance Manager — comandos do stack local
+# Finance Manager: commands for the local stack
 # =============================================================================
-# Rode de dentro de infra/ (ou com `make -C infra <alvo>`). `make help` lista
-# os alvos. Tudo passa pelo docker compose deste diretório, que lê infra/.env.
+# Run from infra/ (or with `make -C infra <target>`). `make help` lists the
+# targets. Everything goes through the docker compose file in this directory,
+# which reads infra/.env.
 
 SHELL := /usr/bin/env bash
 .SHELLFLAGS := -euo pipefail -c
@@ -12,45 +13,45 @@ COMPOSE := docker compose --project-directory $(CURDIR) -f $(CURDIR)/docker-comp
 
 .PHONY: help setup up down restart logs ps rebuild backup restore config ci check-env
 
-help: ## Lista os alvos
+help: ## List the targets
 	@grep -hE '^[a-z-]+:.*## ' $(MAKEFILE_LIST) | awk 'BEGIN {FS = ":.*## "}; {printf "  make %-10s %s\n", $$1, $$2}'
 
-setup: ## Primeira vez: cria infra/.env com segredos novos (não sobrescreve)
+setup: ## First run: create infra/.env with fresh secrets (never overwrites)
 	@scripts/setup.sh
 
 check-env:
-	@test -f .env || { echo "infra/.env não existe. Rode primeiro: make setup"; exit 1; }
+	@test -f .env || { echo "infra/.env does not exist. Run first: make setup"; exit 1; }
 
-up: check-env ## Sobe o stack (builda as imagens que faltarem) e espera ficar saudável
+up: check-env ## Start the stack (builds missing images) and wait until healthy
 	$(COMPOSE) up -d --wait
-	@echo "Finance Manager no ar: http://localhost:$$(grep -E '^APP_PORT=' .env | cut -d= -f2 | grep . || echo 8080)"
+	@echo "Finance Manager is up: http://localhost:$$(grep -E '^APP_PORT=' .env | cut -d= -f2 | grep . || echo 8080)"
 
-down: ## Para e remove os containers (os dados ficam no volume)
+down: ## Stop and remove the containers (data stays in the volume)
 	$(COMPOSE) down
 
-restart: check-env ## Reinicia back-end e front-end (sem rebuild)
+restart: check-env ## Restart back-end and front-end (no rebuild)
 	$(COMPOSE) restart back-end front-end
 
-logs: ## Acompanha os logs (make logs S=back-end para um serviço só)
+logs: ## Follow the logs (make logs S=back-end for a single service)
 	$(COMPOSE) logs -f --tail=200 $(S)
 
-ps: ## Estado e saúde dos containers
+ps: ## Container status and health
 	$(COMPOSE) ps -a
 
-rebuild: check-env ## Depois de mudar o código: rebuilda as imagens e sobe a versão nova
+rebuild: check-env ## After a code change: rebuild the images and start the new version
 	$(COMPOSE) build --pull
 	$(COMPOSE) up -d --wait
-	@echo "Imagens antigas sem uso podem ser removidas com: docker image prune"
+	@echo "Unused old images can be removed with: docker image prune"
 
-backup: ## Dump do banco em infra/backups/ (mantém os BACKUP_KEEP mais recentes)
+backup: ## Dump the database to infra/backups/ (keeps the newest BACKUP_KEEP)
 	@scripts/backup-db.sh
 
-restore: ## Restaura um dump: make restore FILE=backups/finance-manager-....dump
-	@test -n "$(FILE)" || { echo "Uso: make restore FILE=backups/<arquivo>.dump"; exit 2; }
+restore: ## Restore a dump: make restore FILE=backups/finance-manager-....dump
+	@test -n "$(FILE)" || { echo "Usage: make restore FILE=backups/<file>.dump"; exit 2; }
 	@scripts/restore-db.sh "$(FILE)"
 
-config: check-env ## Valida o docker-compose.yml com o infra/.env atual
-	$(COMPOSE) config -q && echo "docker-compose.yml válido."
+config: check-env ## Validate docker-compose.yml against the current infra/.env
+	$(COMPOSE) config -q && echo "docker-compose.yml is valid."
 
-ci: ## CI local do stack: valida, builda, sobe um stack descartável e testa
+ci: ## Local CI: validate, build, start a throwaway stack and test it
 	@scripts/ci-local.sh

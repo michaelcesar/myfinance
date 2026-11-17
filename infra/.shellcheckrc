@@ -1,8 +1,10 @@
-# `# shellcheck source=lib.sh` resolve a partir da pasta do próprio script.
+# ShellCheck settings for scripts/*.sh.
+# `# shellcheck source=lib.sh` resolves relative to the script's own folder.
+# SC2016 (single quotes without expansion) is disabled on purpose: commands
+# passed to `compose exec postgres sh -c '...'` use $POSTGRES_USER and
+# $POSTGRES_DB from the CONTAINER environment and must not expand on the host.
+
 source-path=SCRIPTDIR
 external-sources=true
 
-# SC2016 (aspas simples sem expansão) é intencional aqui: os comandos passados
-# para `compose exec db sh -c '...'` usam $POSTGRES_USER/$POSTGRES_DB do
-# ambiente do CONTAINER, e precisam chegar lá sem expandir no host.
 disable=SC2016

@@ -1,20 +1,16 @@
 #!/usr/bin/env bash
 #
-# Funções comuns dos scripts do infra/. Carregado com `source`, não executado.
+# Shared functions for the infra/ scripts. Sourced, not executed.
 #
-# Todos os comandos do compose passam por `compose`, que fixa o arquivo e o
-# diretório do projeto: os scripts funcionam de qualquer diretório, e o
-# compose sempre lê o infra/.env certo.
+# `compose` wraps docker compose pinned to infra/docker-compose.yml and the
+# infra/ project directory, so scripts work from any directory and always read
+# the right infra/.env. FM_ENV_FILE replaces the interpolation file (default
+# infra/.env); ci-local.sh points it at an empty file so the throwaway stack
+# inherits nothing from the real config. COMPOSE_PROJECT_NAME in the
+# environment overrides the compose `name:`.
 #
-# Notas:
-#   - docker compose apontado para infra/docker-compose.yml. FM_ENV_FILE troca o
-#     arquivo de variáveis que o compose interpola (padrão: infra/.env). O ci-
-#     local.sh aponta para um arquivo vazio, para o stack descartável não herdar
-#     nada da configuração real; COMPOSE_PROJECT_NAME no ambiente troca o nome
-#     do projeto (o `name:` do compose cede a ele).
-#   - Lê uma chave de infra/.env sem executar o arquivo (nada de `source`). Uso:
-#     env_value CHAVE [padrão]
-#   - Falha com mensagem se o infra/.env não existir.
+# `env_value KEY [default]` reads a key from that file without sourcing it.
+# `require_env_file` exits with a message if infra/.env is missing.
 
 INFRA_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 export INFRA_DIR
@@ -37,7 +33,7 @@ env_value() {
 
 require_env_file() {
   if [[ ! -f "$INFRA_DIR/.env" ]]; then
-    echo "infra/.env não existe. Rode primeiro: make setup (ou scripts/setup.sh)." >&2
+    echo "infra/.env does not exist. Run first: make setup (or scripts/setup.sh)." >&2
     exit 1
   fi
 }

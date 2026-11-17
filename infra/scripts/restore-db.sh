@@ -1,33 +1,29 @@
 #!/usr/bin/env bash
 #
-# Restaura um backup feito por backup-db.sh no banco do stack local.
+# Restores a backup made by backup-db.sh into the local stack's database.
 #
-# O que acontece, em ordem:
-#   1. confere que o arquivo é um dump legível (pg_restore --list);
-#   2. pede confirmação (digite "restaurar"), a menos que receba --yes;
-#   3. faz um backup de segurança do estado atual em
-#      infra/backups/pre-restore-AAAAMMDD-HHMMSS.dump (fora da rotação do
-#      backup-db.sh — apague à mão quando não precisar mais; BACKUP_DIR no
-#      ambiente troca a pasta);
-#   4. para `front-end` e `back-end` (ninguém escreve no banco durante a restauração);
-#   5. apaga e recria o banco, e restaura o dump numa transação só — ou entra
-#      tudo, ou nada; não sobra tabela de uma versão mais nova misturada com
-#      dados de uma mais antiga;
-#   6. sobe o stack de novo: o `back-end` aplica as migrations que o
-#      backup ainda não tinha (restaurar um backup antigo numa versão nova do
-#      código funciona) e volta, e só então o front-end volta.
+# In order:
+#   1. checks the file is a readable dump (pg_restore --list);
+#   2. asks for confirmation (type "restore") unless --yes is given;
+#   3. takes a safety backup of the current state to
+#      infra/backups/pre-restore-YYYYMMDD-HHMMSS.dump (outside backup-db.sh
+#      rotation, delete it by hand; BACKUP_DIR in the environment overrides the
+#      folder);
+#   4. stops `front-end` and `back-end` so nothing writes during the restore;
+#   5. drops and recreates the database and restores the dump in a single
+#      transaction (all or nothing), connecting to the `postgres` database and
+#      using --force to drop leftover connections;
+#   6. starts the stack again: `back-end` applies the migrations the backup
+#      lacked (an old backup works on newer code), then `front-end` returns.
 #
-# Uso:
+# From step 3 on, a failure leaves the database empty or half restored; the
+# error message says how to go back to the previous state. A relative FILE
+# resolves from the current directory or from infra/.
+#
+# Usage:
 #   scripts/restore-db.sh backups/finance-manager-20261117-103000.dump
 #   make restore FILE=backups/finance-manager-20261117-103000.dump
-#   scripts/restore-db.sh <arquivo> --yes     # sem pergunta (automação)
-#
-# Notas:
-#   - Caminho relativo vale tanto a partir do diretório atual quanto de infra/.
-#   - Daqui em diante uma falha deixa o banco vazio ou pela metade: o aviso diz
-#     como voltar ao estado de antes.
-#   - Conecta no banco `postgres` para poder apagar o da aplicação; --force
-#     derruba conexões que tenham sobrado (o compose stop já fechou as da API).
+#   scripts/restore-db.sh <file> --yes     # no prompt (automation)
 
 set -euo pipefail
 
@@ -35,7 +31,7 @@ set -euo pipefail
 source "$(dirname "${BASH_SOURCE[0]}")/lib.sh"
 
 usage() {
-  echo "Uso: $0 <arquivo.dump> [--yes]" >&2
+  echo "Usage: $0 <file.dump> [--yes]" >&2
   exit 2
 }
 
@@ -57,29 +53,29 @@ if [[ ! -f "$FILE" && -f "$INFRA_DIR/$FILE" ]]; then
   FILE="$INFRA_DIR/$FILE"
 fi
 if [[ ! -f "$FILE" ]]; then
-  echo "Arquivo não encontrado: $FILE" >&2
+  echo "File not found: $FILE" >&2
   exit 1
 fi
 
 if [[ -z "$(compose ps --status running -q postgres)" ]]; then
-  echo "O container do banco não está rodando. Suba-o com: docker compose up -d postgres (ou make up)" >&2
+  echo "The database container is not running. Start it with: docker compose up -d postgres (or make up)" >&2
   exit 1
 fi
 
-echo "▶ Conferindo o arquivo (pg_restore --list)"
+echo "▶ Verifying the file (pg_restore --list)"
 if ! compose exec -T postgres pg_restore --list < "$FILE" > /dev/null; then
-  echo "O arquivo não é um dump válido do pg_dump (formato custom)." >&2
+  echo "The file is not a valid pg_dump dump (custom format)." >&2
   exit 1
 fi
 
 if [[ "$ASSUME_YES" != true ]]; then
   echo
-  echo "Isto SUBSTITUI todos os dados atuais do Finance Manager por:"
+  echo "This REPLACES all current Finance Manager data with:"
   echo "  $FILE"
-  echo "Um backup de segurança do estado atual é feito antes."
-  read -r -p "Digite 'restaurar' para continuar: " answer
-  if [[ "$answer" != "restaurar" ]]; then
-    echo "Cancelado."
+  echo "A safety backup of the current state is taken first."
+  read -r -p "Type 'restore' to continue: " answer
+  if [[ "$answer" != "restore" ]]; then
+    echo "Cancelled."
     exit 1
   fi
 fi
@@ -88,25 +84,25 @@ BACKUP_DIR="${BACKUP_DIR:-$INFRA_DIR/backups}"
 umask 077
 mkdir -p "$BACKUP_DIR"
 SAFETY="$BACKUP_DIR/pre-restore-$(date +%Y%m%d-%H%M%S).dump"
-echo "▶ Backup de segurança → ${SAFETY}"
+echo "▶ Safety backup -> ${SAFETY}"
 compose exec -T postgres sh -c 'pg_dump -U "$POSTGRES_USER" -d "$POSTGRES_DB" --format=custom' > "$SAFETY"
 
 on_error() {
   echo >&2
-  echo "❌ A restauração falhou. front-end e back-end estão parados." >&2
-  echo "   Para voltar ao estado anterior: $0 ${SAFETY} --yes" >&2
+  echo "❌ The restore failed. front-end and back-end are stopped." >&2
+  echo "   To go back to the previous state: $0 ${SAFETY} --yes" >&2
 }
 trap on_error ERR
 
-echo "▶ Parando front-end e back-end"
+echo "▶ Stopping front-end and back-end"
 compose stop front-end back-end
 
-echo "▶ Recriando o banco e restaurando"
+echo "▶ Recreating the database and restoring"
 compose exec -T postgres sh -c 'dropdb -U "$POSTGRES_USER" --if-exists --force "$POSTGRES_DB" && createdb -U "$POSTGRES_USER" "$POSTGRES_DB"'
 compose exec -T postgres sh -c 'pg_restore -U "$POSTGRES_USER" -d "$POSTGRES_DB" --no-owner --single-transaction --exit-on-error' < "$FILE"
 
-echo "▶ Subindo o stack (back-end aplica migrations pendentes, depois front-end)"
+echo "▶ Starting the stack (back-end applies pending migrations, then front-end)"
 compose up -d --wait
 
 trap - ERR
-echo "✅ Restaurado de ${FILE}. Backup do estado anterior: ${SAFETY}"
+echo "✅ Restored from ${FILE}. Backup of the previous state: ${SAFETY}"

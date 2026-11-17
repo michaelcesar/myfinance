@@ -1,43 +1,32 @@
 # =============================================================================
-# Finance Manager — stack local (uso pessoal, só nesta máquina)
+# Finance Manager: local stack (personal use, this machine only)
 # =============================================================================
 #
-#   make up        # build + sobe tudo (ver Makefile e README.md)
+# Compose project `finance` with three containers on an internal network.
+# Start it with `make up` (see the Makefile and README.md).
 #
-# Grupo `finance` com três containers numa rede interna do compose:
+#   postgres   postgres:16-alpine, data in the `postgres-data` volume. Not published.
+#   back-end   NestJS API. Applies pending migrations, then starts; if a
+#              migration fails the container never becomes healthy and the
+#              front-end does not start (`make logs S=back-end`). Not published.
+#   front-end  Next.js web app. The ONLY published port, bound to loopback:
+#              http://localhost:${APP_PORT:-8080}. The browser calls `/api/*` on
+#              the front-end, which rewrites it to http://back-end:3001 (same
+#              origin, so the httpOnly refresh cookie works without CORS). The
+#              rewrite target is fixed at `next build` (see web/Dockerfile).
 #
-#   postgres   postgres:16-alpine, dados no volume `postgres-data`. NÃO publicado.
-#   back-end   API (NestJS). Ao subir, aplica as migrations pendentes e só então
-#              inicia; se uma migration falhar, o container não fica saudável e o
-#              front-end não sobe (`make logs S=back-end` mostra o erro). NÃO publicado.
-#   front-end  web (Next.js). ÚNICA porta publicada, e só em loopback:
-#              http://localhost:${APP_PORT:-8080}. O navegador chama `/api/*` no
-#              próprio front-end, que reescreve para http://back-end:3001 (mesma
-#              origem — o cookie httpOnly do refresh token funciona sem CORS).
+# Container names are fixed (`postgres`, `back-end`, `front-end`).
+# FM_CONTAINER_PREFIX exists only so scripts/ci-local.sh can run a throwaway
+# stack next to this one; it stays empty in normal use.
 #
-# Os nomes dos containers são fixos (`postgres`, `back-end`, `front-end`). O
-# `FM_CONTAINER_PREFIX` existe só para o CI (`scripts/ci-local.sh`) subir uma
-# pilha descartável ao lado desta sem colidir nomes; no uso normal fica vazio.
+# Variables are interpolated from infra/.env (created by scripts/setup.sh from
+# .env.example). Each container receives only what it uses: APP_SECRET never
+# reaches Postgres and the database password never reaches the front-end.
 #
-# Configuração: o compose lê `infra/.env` (criado por `scripts/setup.sh` a
-# partir do `.env.example`) para interpolar as variáveis abaixo. Cada container
-# recebe só o que usa, listado em `environment:` — o APP_SECRET não vai para o
-# Postgres, a senha do banco não vai para o front-end.
-#
-# Portas: sem o `127.0.0.1:` o Docker publicaria em 0.0.0.0 e ainda abriria
-# exceção no firewall, expondo o app (e seus dados financeiros) à rede local.
-#
-# Notas:
-#   - Rotação dos logs do Docker: um stack que fica de pé meses não pode encher
-#     o disco com json-file.
-#   - Migrations pendentes primeiro, depois a API. O `exec` troca o shell pelo
-#     node, então o dumb-init da imagem entrega o SIGTERM direto à aplicação.
-#   - Só alimenta o CORS da API; com o proxy do front-end tudo é mesma origem.
-#   - Mesmo teste do HEALTHCHECK da imagem, com intervalo menor na subida para o
-#     front-end não esperar 30 s pelo primeiro "healthy". O start_period cobre
-#     as migrations.
-#   - Resolvido no `next build`: o rewrite /api/* aponta para o serviço `back-
-#     end` desta rede. Ver o cabeçalho de web/Dockerfile.
+# Without the `127.0.0.1:` prefix Docker would publish on 0.0.0.0 and open the
+# firewall, exposing the app and its financial data to the local network.
+# Docker logs rotate so a stack that stays up for months cannot fill the disk.
+# =============================================================================
 
 name: finance
 
@@ -47,7 +36,7 @@ x-logging: &logging
     max-size: '10m'
     max-file: '3'
 
-x-db-uri: &db-uri postgresql://${POSTGRES_USER:-finance}:${POSTGRES_PASSWORD:-finance}@postgres:5432/${POSTGRES_DB:-finance_manager}
+x-db-uri: &db-uri postgresql://${POSTGRES_USER:-finance}:${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is missing, run scripts/setup.sh (creates infra/.env) or set the variable}@postgres:5432/${POSTGRES_DB:-finance_manager}
 
 services:
   postgres:
@@ -56,7 +45,7 @@ services:
     restart: unless-stopped
     environment:
       POSTGRES_USER: ${POSTGRES_USER:-finance}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-finance}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is missing, run scripts/setup.sh (creates infra/.env) or set the variable}
       POSTGRES_DB: ${POSTGRES_DB:-finance_manager}
     volumes:
       - postgres-data:/var/lib/postgresql/data
@@ -80,7 +69,7 @@ services:
     environment:
       NODE_ENV: production
       PORT: 3001
-      APP_SECRET: ${APP_SECRET:?APP_SECRET ausente — rode scripts/setup.sh (gera infra/.env) ou defina a variável}
+      APP_SECRET: ${APP_SECRET:?APP_SECRET is missing, run scripts/setup.sh (creates infra/.env) or set the variable}
       FRONTEND_DOMAIN: http://localhost:${APP_PORT:-8080}
       POSTGRES_URI: *db-uri
       TYPEORM_LOG: 'false'

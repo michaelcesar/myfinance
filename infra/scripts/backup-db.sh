@@ -1,28 +1,24 @@
 #!/usr/bin/env bash
 #
-# Backup do banco do stack local: pg_dump em formato custom (-Fc, comprimido,
-# restaurável seletivamente com pg_restore) do container `postgres` para
+# Database backup of the local stack: pg_dump in custom format (-Fc,
+# compressed, selectively restorable with pg_restore) from the `postgres`
+# container to
 #
-#   infra/backups/finance-manager-AAAAMMDD-HHMMSS.dump
+#   infra/backups/finance-manager-YYYYMMDD-HHMMSS.dump
 #
-# e apaga os mais antigos, mantendo os N mais recentes. N vem, nesta ordem, de
-# BACKUP_KEEP no ambiente, de BACKUP_KEEP em infra/.env, ou 14.
+# then deletes the oldest ones, keeping the newest N. N comes from BACKUP_KEEP
+# in the environment, then BACKUP_KEEP in infra/.env, then 14.
 #
-# O dump é gravado primeiro como `.partial` e só ganha o nome final depois de
-# o pg_restore conseguir ler o índice dele: um dump cortado (disco cheio,
-# container caiu no meio) nunca é confundido com um backup bom — nem conta
-# para a rotação.
+# The dump is written as `.partial` and only gets its final name after
+# pg_restore can read its index, so a truncated dump (full disk, container
+# died) is never mistaken for a good backup nor counted for rotation.
+# Files are mode 600 and the folder 700. BACKUP_DIR in the environment
+# overrides the folder (ci-local.sh uses a temporary one). User and database
+# come from the container's own environment; no secret is read here.
 #
-# Os arquivos têm permissão 600 e a pasta 700: são seus dados financeiros.
-# BACKUP_DIR no ambiente troca a pasta (o ci-local.sh usa uma temporária).
-#
-# Uso:
-#   scripts/backup-db.sh             (ou: make backup)
+# Usage:
+#   scripts/backup-db.sh             (or: make backup)
 #   BACKUP_KEEP=30 scripts/backup-db.sh
-#
-# Notas:
-#   - Usuário e banco vêm do ambiente do próprio container: o script não precisa
-#     conhecer a senha nem ler segredos do infra/.env.
 
 set -euo pipefail
 
@@ -31,12 +27,12 @@ source "$(dirname "${BASH_SOURCE[0]}")/lib.sh"
 
 KEEP="${BACKUP_KEEP:-$(env_value BACKUP_KEEP 14)}"
 if ! [[ "$KEEP" =~ ^[1-9][0-9]*$ ]]; then
-  echo "BACKUP_KEEP precisa ser um inteiro >= 1 (recebido: '$KEEP')." >&2
+  echo "BACKUP_KEEP must be an integer >= 1 (got: '$KEEP')." >&2
   exit 1
 fi
 
 if [[ -z "$(compose ps --status running -q postgres)" ]]; then
-  echo "O container do banco não está rodando. Suba o stack com: make up" >&2
+  echo "The database container is not running. Start the stack with: make up" >&2
   exit 1
 fi
 
@@ -49,19 +45,19 @@ FILE="$BACKUP_DIR/finance-manager-$(date +%Y%m%d-%H%M%S).dump"
 PARTIAL="$FILE.partial"
 trap 'rm -f "$PARTIAL"' EXIT
 
-echo "▶ pg_dump → ${FILE}"
+echo "▶ pg_dump -> ${FILE}"
 compose exec -T postgres sh -c 'pg_dump -U "$POSTGRES_USER" -d "$POSTGRES_DB" --format=custom' > "$PARTIAL"
 
-echo "▶ Conferindo o dump (pg_restore --list)"
+echo "▶ Verifying the dump (pg_restore --list)"
 compose exec -T postgres pg_restore --list < "$PARTIAL" > /dev/null
 mv "$PARTIAL" "$FILE"
 trap - EXIT
 
-echo "▶ Mantendo os ${KEEP} backups mais recentes"
+echo "▶ Keeping the newest ${KEEP} backups"
 mapfile -t OLD < <(find "$BACKUP_DIR" -maxdepth 1 -type f -name 'finance-manager-*.dump' -printf '%f\n' | sort -r | tail -n "+$((KEEP + 1))")
 for old in "${OLD[@]}"; do
   rm -f -- "$BACKUP_DIR/$old"
-  echo "  removido: $old"
+  echo "  removed: $old"
 done
 
-echo "✅ Backup pronto: ${FILE} ($(du -h "$FILE" | cut -f1))"
+echo "✅ Backup ready: ${FILE} ($(du -h "$FILE" | cut -f1))"

@@ -1,22 +1,18 @@
 #!/usr/bin/env bash
 #
-# Primeira configuração do stack local: cria infra/.env a partir do
-# .env.example com segredos novos.
+# First-time setup of the local stack: creates infra/.env from .env.example
+# with fresh secrets.
 #
-#   - APP_SECRET: 48 bytes aleatórios em base64 (assina os JWT);
-#   - POSTGRES_PASSWORD: 24 bytes em hex (entra na URL de conexão, então só
-#     [0-9a-f], sem caractere que precise de escape).
+#   - APP_SECRET: 48 random bytes in base64 (signs the JWTs);
+#   - POSTGRES_PASSWORD: 24 random bytes in hex (it goes into the connection
+#     URL, so only [0-9a-f], nothing that needs escaping).
 #
-# Não sobrescreve nada: se infra/.env já existe, sai sem tocar nele — trocar
-# o APP_SECRET derruba as sessões, e trocar a senha do banco depois de criado
-# o volume deixa a API sem acesso.
+# Never overwrites: if infra/.env exists it exits untouched, because changing
+# APP_SECRET drops every session and changing the password after the volume
+# exists locks the API out of the database. The file is created with mode 600
+# and the sed delimiter is `|` (base64 can contain `/` and `+`, never `|`).
 #
-# Uso: scripts/setup.sh   (ou: make setup)
-#
-# Notas:
-#   - Arquivo criado já com permissão 600: os segredos nunca ficam legíveis por
-#     outros usuários, nem por um instante.
-#   - `|` como delimitador do sed: base64 pode ter `/` e `+`, mas nunca `|`.
+# Usage: scripts/setup.sh   (or: make setup)
 
 set -euo pipefail
 
@@ -27,11 +23,11 @@ ENV_FILE="$INFRA_DIR/.env"
 EXAMPLE="$INFRA_DIR/.env.example"
 
 if [[ -f "$ENV_FILE" ]]; then
-  echo "infra/.env já existe — nada a fazer (apague-o à mão se quiser recriar)."
+  echo "infra/.env already exists: nothing to do (delete it by hand to recreate it)."
   exit 0
 fi
 
-command -v openssl >/dev/null || { echo "openssl não encontrado." >&2; exit 1; }
+command -v openssl >/dev/null || { echo "openssl not found." >&2; exit 1; }
 
 APP_SECRET="$(openssl rand -base64 48 | tr -d '\n')"
 POSTGRES_PASSWORD="$(openssl rand -hex 24)"
@@ -46,5 +42,5 @@ sed -e "s|^APP_SECRET=.*|APP_SECRET=${APP_SECRET}|" \
 mv "$TMP" "$ENV_FILE"
 trap - EXIT
 
-echo "infra/.env criado com APP_SECRET e POSTGRES_PASSWORD novos (permissão 600)."
-echo "Próximo passo: make up   →   http://localhost:$(env_value APP_PORT 8080)"
+echo "infra/.env created with new APP_SECRET and POSTGRES_PASSWORD (mode 600)."
+echo "Next step: make up   ->   http://localhost:$(env_value APP_PORT 8080)"
