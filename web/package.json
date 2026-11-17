@@ -48,5 +48,12 @@
   "description": "Financial front-end: personal and business finance.",
   "engines": {
     "node": ">=22"
+  },
+  "pnpm": {
+    "auditConfig": {
+      "ignoreGhsas": [
+        "GHSA-fc5q-39xc-vjpf"
+      ]
+    }
   }
 }

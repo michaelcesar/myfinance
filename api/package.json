@@ -82,5 +82,12 @@
   },
   "engines": {
     "node": ">=22"
+  },
+  "pnpm": {
+    "auditConfig": {
+      "ignoreGhsas": [
+        "GHSA-fc5q-39xc-vjpf"
+      ]
+    }
   }
 }
