@@ -1,0 +1,32 @@
+# Contexto de build da imagem (Dockerfile na raiz).
+# Fica de fora tudo que o `next build` gera ou não usa: node_modules e .next
+# locais (o dev server em execução escreve em .next — copiá-lo sujaria o build),
+# docs, hooks e configuração de CI.
+node_modules
+.next
+out
+build
+coverage
+.git
+.githooks
+.github
+.vscode
+.idea
+.claude
+docs
+scripts
+*.md
+*.log
+*.tsbuildinfo
+next-env.d.ts
+Dockerfile
+.dockerignore
+# Segredos nunca entram na imagem.
+.env
+.env.*
+!.env.example
+secure
+*.pem
+*.key
+*.p12
+*-service-account.json

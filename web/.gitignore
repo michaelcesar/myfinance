@@ -1,0 +1,56 @@
+# dependencies
+/node_modules
+/.pnpm-store
+
+# next.js
+/.next/
+/out/
+
+# production
+/build
+
+# testing
+/coverage
+
+# misc
+.DS_Store
+*.pem
+*.tsbuildinfo
+next-env.d.ts
+
+# debug
+npm-debug.log*
+pnpm-debug.log*
+
+# env files
+.env
+.env.*
+!.env.example
+
+#txt
+# Arquivo de texto na raiz costuma ser rascunho ou despejo de credencial.
+*.txt
+
+#md
+# Documentação é local: só o README.md (inglês) é versionado. CLAUDE, AGENTS
+# (inclusive o bloco que o `next dev` regrava), os pares .pt.md e a pasta docs/
+# ficam em disco e nunca chegam ao repositório. Mesmo tratamento do juscia.
+*.md
+!README.md
+/docs/
+
+#ide
+.claude/
+.cursor/
+.vscode/*
+!.vscode/settings.json
+.github/copilot-instructions.md
+
+#metadados do Windows
+*:Zone.Identifier
+
+#segredos
+*.key
+*.p12
+*-service-account.json
+secure/

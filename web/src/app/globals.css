@@ -1,0 +1,399 @@
+/*
+ * Design tokens do Finance Manager — fonte única da verdade do sistema de design.
+ *
+ * Cor, tipografia, raio, sombra, grid da página, camadas e movimento são
+ * custom properties semânticas declaradas no `@theme` do Tailwind v4, que
+ * gera as utilidades (`bg-surface`, `text-fg-muted`, `text-footnote`,
+ * `rounded-card`, `max-w-page`, `px-gutter`...) e expõe as mesmas variáveis
+ * no `:root`. Componente usa utilidade ou `var(--token)` — nunca hex solto,
+ * nunca tamanho em pixel avulso.
+ *
+ * Os padrões do Tailwind (paleta, escala de texto, raio e sombra) são zerados
+ * com `initial`: só existe o que está declarado aqui. Cor fora do sistema não
+ * gera classe — é assim que o padrão se mantém sozinho.
+ *
+ * Linguagem: neutros da família zinc (branco, preto e cinzas). A ação
+ * principal é preta no claro e branca no escuro. Cor só aparece com
+ * significado: feedback (sucesso, erro, alerta), dados dos gráficos e a cor
+ * que o usuário escolhe para identificar conta, categoria ou empresa
+ * (`--color-palette-*`, usada em gráficos e marcadores pequenos).
+ *
+ * Tema: o `@theme` define o claro; `[data-theme='dark']` sobrescreve o
+ * escuro. O escuro tem degraus próprios, não o claro invertido.
+ */
+@import 'tailwindcss';
+
+@custom-variant dark (&:where([data-theme='dark'], [data-theme='dark'] *));
+
+@theme {
+  --color-*: initial;
+  --text-*: initial;
+  --radius-*: initial;
+  --shadow-*: initial;
+
+  /* ---------- Tipografia ---------- */
+  --font-sans: -apple-system, BlinkMacSystemFont, 'SF Pro Text', var(--font-inter), system-ui, sans-serif;
+  --font-display: -apple-system, BlinkMacSystemFont, 'SF Pro Display', var(--font-inter), system-ui, sans-serif;
+
+  /* Escala de texto em px, nos degraus da tipografia da Apple. */
+  --text-micro: 10px; /* rótulo da barra de abas, selo minúsculo */
+  --text-caption-2: 11px; /* selo, sobretítulo em maiúsculas */
+  --text-caption: 12px; /* legenda, valor secundário */
+  --text-footnote: 13px; /* linha secundária de lista, cabeçalho de grupo */
+  --text-subhead: 14px; /* item de menu, rótulo de campo */
+  --text-body: 15px; /* texto corrido, campo, linha de lista */
+  --text-callout: 16px; /* valor de destaque em cartão pequeno */
+  --text-headline: 17px; /* título de cartão, valor de estatística */
+  --text-title-3: 20px; /* título de seção, marca */
+  --text-title-2: 22px; /* título de folha, saldo de conta */
+  --text-title-1: 24px; /* valor de estatística grande */
+  --text-display-sm: 28px; /* título do login */
+  --text-display: 34px; /* título da página */
+  --text-display-lg: 40px; /* valor digitado no campo de dinheiro */
+  --text-display-xl: 48px; /* patrimônio em destaque */
+
+  /* ---------- Neutros (zinc) ---------- */
+  --color-white: #ffffff;
+  --color-black: #000000;
+  --color-gray-50: #fafafa;
+  --color-gray-100: #f4f4f5;
+  --color-gray-200: #e4e4e7;
+  --color-gray-300: #d4d4d8;
+  --color-gray-400: #a1a1aa;
+  --color-gray-500: #71717a;
+  --color-gray-600: #52525b;
+  --color-gray-700: #3f3f46;
+  --color-gray-800: #27272a;
+  --color-gray-900: #18181b;
+  --color-gray-950: #09090b;
+
+  /* ---------- Superfícies ---------- */
+  --color-bg: var(--color-white); /* fundo da página: branco, cartões separados pelo fio */
+  --color-surface: var(--color-white); /* cartão, folha */
+  --color-surface-2: var(--color-gray-50); /* bloco dentro de cartão */
+  --color-surface-3: var(--color-gray-200); /* trilho, bloco de ícone */
+  --color-elevated: var(--color-white); /* menu, aviso, diálogo */
+  --color-sidebar: rgb(255 255 255 / 0.85); /* material translúcido */
+  --color-topbar: rgb(255 255 255 / 0.85);
+  --color-overlay: rgb(0 0 0 / 0.32); /* véu atrás da folha */
+
+  /* Preenchimentos translúcidos de controle (campo, botão cinza, hover). */
+  --color-fill: rgb(113 113 122 / 0.14);
+  --color-fill-2: rgb(113 113 122 / 0.08);
+  --color-fill-3: rgb(113 113 122 / 0.24);
+
+  /* ---------- Bordas ---------- */
+  --color-border: var(--color-gray-200);
+  --color-border-strong: var(--color-gray-300);
+
+  /* ---------- Texto ---------- */
+  --color-fg: var(--color-gray-950); /* 19.6:1 sobre branco */
+  --color-fg-muted: var(--color-gray-500); /* 4.8:1 sobre branco — AA */
+  --color-fg-subtle: var(--color-gray-400); /* placeholder, ícone decorativo */
+
+  /* ---------- Ação principal (monocromática) ---------- */
+  --color-primary: var(--color-gray-900);
+  --color-primary-hover: var(--color-gray-700);
+  --color-primary-fg: var(--color-white);
+  --color-primary-subtle: rgb(24 24 27 / 0.06);
+
+  /* Bloco invertido (cartão de conta, avatar): escuro nos dois temas. */
+  --color-inverted: var(--color-gray-900);
+  --color-inverted-2: var(--color-gray-700);
+  --color-inverted-fg: var(--color-gray-50);
+  --color-inverted-muted: var(--color-gray-400);
+
+  /* ---------- Feedback ---------- */
+  /* Degraus calibrados para texto AA sobre a superfície; `subtle` é fundo. */
+  --color-success: #15803d;
+  --color-success-subtle: rgb(22 163 74 / 0.12);
+  --color-error: #dc2626;
+  --color-error-subtle: rgb(220 38 38 / 0.1);
+  --color-warning: #b45309;
+  --color-warning-subtle: rgb(245 158 11 / 0.16);
+
+  --color-focus-ring: rgb(9 9 11 / 0.24);
+
+  /*
+   * Cores que o usuário escolhe para identificar conta, categoria e empresa.
+   * A API grava o nome (`'green'`); `lib/palette.ts` traduz para estas
+   * variáveis. Aparecem em gráficos e marcadores pequenos, nunca em superfície.
+   */
+  --color-palette-blue: #007aff;
+  --color-palette-green: #34c759;
+  --color-palette-indigo: #5856d6;
+  --color-palette-orange: #ff9500;
+  --color-palette-pink: #ff2d55;
+  --color-palette-purple: #af52de;
+  --color-palette-red: #ff3b30;
+  --color-palette-teal: #30b0c7;
+  --color-palette-yellow: #ffcc00;
+  --color-palette-mint: #00c7be;
+  --color-palette-cyan: #32ade6;
+  --color-palette-brown: #a2845e;
+  --color-palette-gray: #8e8e93;
+
+  /* ---------- Raio ---------- */
+  --radius-xs: 3px; /* amostra de legenda */
+  --radius-sm: 6px;
+  --radius-md: 8px; /* item de menu, bloco de ícone pequeno, polegar do segmentado */
+  --radius-control: 10px; /* campo, botão quadrado, controle segmentado */
+  --radius-lg: 12px;
+  --radius-xl: 14px; /* bloco de ícone grande, bloco dentro de cartão */
+  --radius-2xl: 18px; /* cartão de conta, diálogo */
+  --radius-card: 20px; /* cartão */
+  --radius-sheet: 24px; /* folha */
+  --radius-3xl: 28px; /* cartão do login */
+  --radius-full: 9999px;
+
+  /* ---------- Sombra ---------- */
+  /* Cartão desenhado pelo fio, quase plano; sombra de verdade só no que flutua. */
+  --shadow-card: 0 0 0 1px var(--color-border), 0 1px 2px rgb(0 0 0 / 0.04);
+  --shadow-float: 0 0 0 1px var(--color-border), 0 12px 40px rgb(0 0 0 / 0.12);
+  --shadow-thumb: 0 3px 8px rgb(0 0 0 / 0.15), 0 3px 1px rgb(0 0 0 / 0.06); /* polegar da chave */
+  --shadow-segment: 0 3px 8px rgb(0 0 0 / 0.12), 0 3px 1px rgb(0 0 0 / 0.04); /* polegar do controle segmentado */
+
+  /* ---------- Grid da página ---------- */
+  --container-page: 1920px; /* largura máxima do conteúdo (`max-w-page`) — só limita monitores muito largos */
+  --spacing-gutter: 16px; /* margem do conteúdo (`p-gutter`): a mesma nas laterais, em cima e embaixo — 16px, 24px a partir do sm */
+  --spacing-shell: 12px; /* respiro do menu flutuante até a borda da tela (`left-shell`) */
+  --spacing-sidebar: 256px; /* menu aberto (`w-sidebar`) */
+  --spacing-sidebar-rail: 72px; /* menu recolhido, só ícones (`w-sidebar-rail`) */
+  --spacing-content: calc(var(--spacing-sidebar) + var(--spacing-shell)); /* recuo do conteúdo com o menu aberto (`pl-content`); o respiro vem do `px-gutter` */
+  --spacing-content-rail: calc(var(--spacing-sidebar-rail) + var(--spacing-shell)); /* recuo com o menu recolhido (`pl-content-rail`) */
+  --spacing-topbar: 56px; /* barra superior do celular (`h-topbar`) */
+
+  /* ---------- Movimento ---------- */
+  --ease-apple: cubic-bezier(0.32, 0.72, 0, 1);
+}
+
+:root {
+  color-scheme: light;
+
+  /* Camadas (z-index), usadas como `z-(--z-sheet)`. */
+  --z-raised: 10;
+  --z-nav: 30;
+  --z-sheet: 50;
+  --z-dialog: 60;
+  --z-tooltip: 90;
+  --z-toast: 100;
+
+  /*
+   * Paleta categórica dos gráficos, em ordem fixa (nunca ciclada). Validada
+   * (faixa de luminosidade, croma, separação para daltonismo) contra a
+   * superfície de cada tema — o escuro tem degraus próprios.
+   */
+  --chart-1: #007aff;
+  --chart-2: #ff9500;
+  --chart-3: #5856d6;
+  --chart-4: #34c759;
+  --chart-5: #af52de;
+  --chart-6: #30b0c7;
+  --chart-7: #ff2d55;
+  --chart-income: var(--chart-4);
+  --chart-expense: var(--chart-2);
+  --chart-grid: var(--color-border);
+}
+
+@media (min-width: 640px) {
+  :root {
+    --spacing-gutter: 24px;
+  }
+}
+
+[data-theme='dark'] {
+  color-scheme: dark;
+
+  --color-bg: var(--color-black);
+  --color-surface: var(--color-gray-900);
+  --color-surface-2: var(--color-gray-800);
+  --color-surface-3: var(--color-gray-700);
+  --color-elevated: var(--color-gray-900);
+  --color-sidebar: rgb(9 9 11 / 0.8);
+  --color-topbar: rgb(0 0 0 / 0.8);
+  --color-overlay: rgb(0 0 0 / 0.6);
+
+  --color-fill: rgb(161 161 170 / 0.18);
+  --color-fill-2: rgb(161 161 170 / 0.1);
+  --color-fill-3: rgb(161 161 170 / 0.3);
+
+  --color-border: var(--color-gray-800);
+  --color-border-strong: var(--color-gray-700);
+
+  --color-fg: var(--color-gray-50);
+  --color-fg-muted: var(--color-gray-400); /* 7.1:1 sobre gray-900 */
+  --color-fg-subtle: var(--color-gray-500);
+
+  --color-primary: var(--color-gray-50);
+  --color-primary-hover: var(--color-gray-300);
+  --color-primary-fg: var(--color-gray-950);
+  --color-primary-subtle: rgb(250 250 250 / 0.08);
+
+  --color-inverted: var(--color-gray-800);
+  --color-inverted-2: var(--color-gray-950);
+
+  --color-success: #4ade80;
+  --color-success-subtle: rgb(74 222 128 / 0.14);
+  --color-error: #f87171;
+  --color-error-subtle: rgb(248 113 113 / 0.14);
+  --color-warning: #fbbf24;
+  --color-warning-subtle: rgb(251 191 36 / 0.14);
+
+  --color-focus-ring: rgb(250 250 250 / 0.32);
+
+  --color-palette-blue: #0a84ff;
+  --color-palette-green: #30d158;
+  --color-palette-indigo: #5e5ce6;
+  --color-palette-orange: #ff9f0a;
+  --color-palette-pink: #ff375f;
+  --color-palette-purple: #bf5af2;
+  --color-palette-red: #ff453a;
+  --color-palette-teal: #40c8e0;
+  --color-palette-yellow: #ffd60a;
+  --color-palette-mint: #63e6e2;
+  --color-palette-cyan: #64d2ff;
+  --color-palette-brown: #ac8e68;
+  --color-palette-gray: #98989d;
+
+  --shadow-card: 0 0 0 1px var(--color-border);
+  --shadow-float: 0 0 0 1px var(--color-border), 0 16px 48px rgb(0 0 0 / 0.6);
+
+  --chart-1: #0a84ff;
+  --chart-2: #c97200;
+  --chart-3: #5e5ce6;
+  --chart-4: #22a043;
+  --chart-5: #bf5af2;
+  --chart-6: #1b9ab0;
+  --chart-7: #ff375f;
+}
+
+@layer base {
+  html {
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    text-rendering: optimizeLegibility;
+  }
+
+  body {
+    background: var(--color-bg);
+    color: var(--color-fg);
+    font-family: var(--font-sans);
+    font-size: var(--text-body);
+    letter-spacing: -0.01em;
+  }
+
+  ::selection {
+    background: var(--color-fill-3);
+  }
+
+  :focus-visible {
+    outline: 3px solid var(--color-focus-ring);
+    outline-offset: 2px;
+  }
+
+  input[type='date']::-webkit-calendar-picker-indicator {
+    opacity: 0.5;
+    cursor: pointer;
+  }
+
+  [data-theme='dark'] input[type='date']::-webkit-calendar-picker-indicator {
+    filter: invert(1);
+  }
+}
+
+@layer utilities {
+  /* Material translúcido (vibrancy): sidebar, barra superior, menus. */
+  .material {
+    -webkit-backdrop-filter: saturate(180%) blur(24px);
+    backdrop-filter: saturate(180%) blur(24px);
+  }
+
+  .tabular {
+    font-variant-numeric: tabular-nums;
+  }
+
+  .no-scrollbar {
+    scrollbar-width: none;
+  }
+
+  .no-scrollbar::-webkit-scrollbar {
+    display: none;
+  }
+}
+
+/*
+ * Entrada escalonada (`motion-stagger`, do toca aê): os blocos de uma pilha
+ * de página sobem 8px esmaecendo, 50 ms um depois do outro. A tela e o
+ * esqueleto dela usam a mesma pilha (`PAGE_STACK_CLASS`), então a troca
+ * esqueleto → conteúdo vira um esmaecer no lugar.
+ */
+:root {
+  --motion-stagger-step: 50ms;
+}
+
+@keyframes motion-fade-up {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+}
+
+.motion-stagger > * {
+  animation: motion-fade-up 420ms var(--ease-apple) both;
+}
+
+.motion-stagger > :nth-child(2) {
+  animation-delay: calc(var(--motion-stagger-step) * 1);
+}
+
+.motion-stagger > :nth-child(3) {
+  animation-delay: calc(var(--motion-stagger-step) * 2);
+}
+
+.motion-stagger > :nth-child(4) {
+  animation-delay: calc(var(--motion-stagger-step) * 3);
+}
+
+.motion-stagger > :nth-child(5) {
+  animation-delay: calc(var(--motion-stagger-step) * 4);
+}
+
+.motion-stagger > :nth-child(n + 6) {
+  animation-delay: calc(var(--motion-stagger-step) * 5);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .motion-stagger > * {
+    animation: none;
+  }
+}
+
+/* Transição de página (React <ViewTransition>): crossfade curto com leve subida. */
+::view-transition-old(page) {
+  animation: 160ms var(--ease-apple) both page-out;
+}
+
+::view-transition-new(page) {
+  animation: 280ms var(--ease-apple) both page-in;
+}
+
+@keyframes page-out {
+  to {
+    opacity: 0;
+    transform: translateY(-4px);
+  }
+}
+
+@keyframes page-in {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  ::view-transition-old(page),
+  ::view-transition-new(page) {
+    animation: none;
+  }
+}
